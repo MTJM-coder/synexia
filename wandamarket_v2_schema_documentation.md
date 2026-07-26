@@ -1,6 +1,6 @@
 # WandaMarket V2 — Schéma de base de données
 
-**Moteur** : MySQL 8+ (compatible MariaDB 10.11, testé) · **Tables** : 66 · **Clés étrangères** : 106
+**Moteur** : postgre 18· **Tables** : 66 · **Clés étrangères** : 106
 Schéma validé par import réel sur un serveur MariaDB (création + insertions test réussies).
 
 ---
