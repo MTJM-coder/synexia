@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('shop_employee_permissions', function (Blueprint $table) {
             $table->id();
+            $table->timestamps();
             $table->foreignId('shop_employee_id')->constrained('shop_employees')->cascadeOnDelete();
             $table->foreignId('permission_id')->constrained('permissions')->cascadeOnDelete();
             $table->boolean('is_granted')->default(true);

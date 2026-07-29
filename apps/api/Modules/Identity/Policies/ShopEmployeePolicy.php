@@ -39,7 +39,10 @@ class ShopEmployeePolicy
             return true;
         }
 
-        $employee = $user->shopEmployments()
+        // BUG CORRIGÉ : User::shopEmployments() n'existe pas — la relation
+        // réelle sur le modèle s'appelle shopEmployees(). Toute policy check
+        // plantait avec une BadMethodCallException avant ce correctif.
+        $employee = $user->shopEmployees()
             ->where('shop_id', $shopId)
             ->first();
 

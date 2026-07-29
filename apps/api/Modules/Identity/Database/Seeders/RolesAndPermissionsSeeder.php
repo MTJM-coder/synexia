@@ -7,8 +7,7 @@ use Modules\Identity\Models\Permission;
 use Modules\Identity\Models\Role;
 
 /**
- * Rôles "système" (is_system = true) disponibles pour toutes les boutiques,
- * et la liste de permissions de base couvrant les modules déjà scaffoldés.
+ * Rôles "système" (is_system = true), portée boutique ET plateforme.
  * À enrichir au fur et à mesure que Sales/Payments/Shipping/etc. sont construits.
  */
 class RolesAndPermissionsSeeder extends Seeder
@@ -23,7 +22,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'reports' => ['view'],
     ];
 
-    /** @var array<string, string[]> nom du rôle système => permissions accordées ('*' = toutes) */
+    /** @var array<string, string[]> */
     private const SYSTEM_ROLES = [
         'Owner' => ['*'],
         'Manager' => [
@@ -45,26 +44,51 @@ class RolesAndPermissionsSeeder extends Seeder
         ],
     ];
 
+    /** @var array<string, string[]> */
+    private const PLATFORM_PERMISSIONS = [
+        'shops' => ['view', 'manage', 'suspend'],
+        'subscriptions' => ['view', 'manage'],
+        'commissions' => ['view', 'manage'],
+        'platform-users' => ['view', 'manage'],
+    ];
+
+    /** @var array<string, string[]> */
+    private const PLATFORM_ROLES = [
+        'Super Admin' => ['*'],
+        'Marketplace Admin' => [
+            'platform.shops.view', 'platform.shops.manage', 'platform.shops.suspend',
+            'platform.subscriptions.view', 'platform.subscriptions.manage',
+            'platform.commissions.view',
+            'platform.platform-users.view',
+        ],
+    ];
+
     public function run(): void
     {
-        $permissions = $this->seedPermissions();
-        $this->seedSystemRoles($permissions);
+        $shopPermissions = $this->seedPermissions(self::PERMISSIONS, prefix: null);
+        $this->seedRoles(self::SYSTEM_ROLES, $shopPermissions, Role::GUARD_SHOP);
+
+        $platformPermissions = $this->seedPermissions(self::PLATFORM_PERMISSIONS, prefix: 'platform');
+        $this->seedRoles(self::PLATFORM_ROLES, $platformPermissions, Role::GUARD_PLATFORM);
     }
 
     /**
-     * @return array<string, Permission> nom de permission => modèle
+     * @param  array<string, string[]>  $definitions
+     * @return array<string, Permission>
      */
-    private function seedPermissions(): array
+    private function seedPermissions(array $definitions, ?string $prefix): array
     {
         $permissions = [];
 
-        foreach (self::PERMISSIONS as $module => $actions) {
+        foreach ($definitions as $module => $actions) {
+            $moduleName = $prefix ? "{$prefix}.{$module}" : $module;
+
             foreach ($actions as $action) {
-                $name = "{$module}.{$action}";
+                $name = "{$moduleName}.{$action}";
 
                 $permissions[$name] = Permission::firstOrCreate(
                     ['name' => $name],
-                    ['module' => $module, 'description' => null],
+                    ['module' => $moduleName, 'description' => null],
                 );
             }
         }
@@ -73,16 +97,17 @@ class RolesAndPermissionsSeeder extends Seeder
     }
 
     /**
+     * @param  array<string, string[]>  $roleDefinitions
      * @param  array<string, Permission>  $permissions
      */
-    private function seedSystemRoles(array $permissions): void
+    private function seedRoles(array $roleDefinitions, array $permissions, string $guardScope): void
     {
-        foreach (self::SYSTEM_ROLES as $roleName => $grantedNames) {
+        foreach ($roleDefinitions as $roleName => $grantedNames) {
             $role = Role::firstOrCreate(
                 ['slug' => \Illuminate\Support\Str::slug($roleName), 'shop_id' => null],
                 [
                     'name' => $roleName,
-                    'guard_scope' => Role::GUARD_SHOP,
+                    'guard_scope' => $guardScope,
                     'is_system' => true,
                 ],
             );

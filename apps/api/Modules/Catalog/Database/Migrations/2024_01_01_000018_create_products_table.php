@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -43,8 +44,16 @@ return new class extends Migration
             $table->timestamp('updated_at')->nullable()->useCurrent()->useCurrentOnUpdate();
             $table->softDeletes();
             $table->unique(['slug', 'shop_id'], 'uq_product_slug_shop');
-            $table->fullText(['name', 'description']);
         });
+
+        // $table->fullText(['name', 'description']) est invalide sur Postgres :
+        // la grammaire Laravel ne supporte le fullText() multi-colonnes que sur
+        // MySQL. On crée donc l'index GIN directement, sur la concaténation des
+        // deux colonnes (équivalent fonctionnel, valable uniquement sur Postgres).
+        DB::statement(
+            "CREATE INDEX ft_product_search ON products ".
+            "USING GIN (to_tsvector('french', coalesce(name, '') || ' ' || coalesce(description, '')))"
+        );
     }
 
     public function down(): void

@@ -9,9 +9,9 @@ use Modules\Identity\Models\User;
 use Modules\Marketplace\Models\Shop;
 
 /**
- * NOTE : dépend de Shop::factory() (module Marketplace, pas encore construit
- * au moment où ce fichier est écrit). Cette factory ne fonctionnera qu'une
- * fois que Marketplace aura son propre modèle Shop + sa propre factory.
+ * Dépend de Shop::factory() (module Marketplace). Ne fonctionne que si
+ * Marketplace est chargé — normal pour les tests d'intégration Identity qui
+ * impliquent une boutique.
  */
 class ShopEmployeeFactory extends Factory
 {

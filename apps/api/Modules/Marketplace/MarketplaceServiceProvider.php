@@ -3,29 +3,27 @@
 namespace Modules\Marketplace;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Marketplace\Contracts\CommissionCalculatorContract;
+use Modules\Marketplace\Contracts\PlanLimitCheckerContract;
+use Modules\Marketplace\Events\ShopStatusChanged;
+use Modules\Marketplace\Listeners\LogShopStatusChange;
+use Modules\Marketplace\Services\CommissionCalculator;
+use Modules\Marketplace\Services\PlanLimitChecker;
 
 class MarketplaceServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Bindings de Contracts -> implémentations concrètes.
-        // Ex: $this->app->singleton(SomeContract::class, SomeService::class);
+        $this->app->singleton(PlanLimitCheckerContract::class, PlanLimitChecker::class);
+        $this->app->singleton(CommissionCalculatorContract::class, CommissionCalculator::class);
     }
 
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
-        $this->loadRoutesFrom(__DIR__.'/routes.php');
 
-        // Permet à $model->factory() de trouver les factories du module
-        // (elles ne vivent pas dans database/factories comme Laravel l'attend par défaut).
-        Factory::guessFactoryNamesUsing(
-            fn (string $modelClass) => 'Modules\\Marketplace\\Database\\Factories\\'
-                .class_basename($modelClass).'Factory'
-        );
-
-        // Enregistrement des Events/Listeners du module : voir Modules\Identity
-        // ou Modules\Inventory pour un exemple concret (Event::listen(...)).
+        Event::listen(ShopStatusChanged::class, [LogShopStatusChange::class, 'handle']);
     }
 }

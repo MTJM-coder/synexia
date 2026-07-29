@@ -8,24 +8,29 @@ use Modules\Identity\Models\Permission;
 use Modules\Identity\Models\Role;
 use Modules\Identity\Models\ShopEmployee;
 use Modules\Identity\Models\ShopEmployeePermission;
-use Modules\Identity\Models\User;
-use Modules\Marketplace\Models\Shop;
 use Tests\TestCase;
 
-/**
- * Couvre la règle métier centrale du module : permissions effectives =
- * (permissions du rôle) + (surcharges "grant") - (surcharges "deny"),
- * et un employé suspendu n'a jamais aucune permission.
- */
 class PermissionResolverTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function makeEmployeeWithRolePermissions(array $permissionNames): ShopEmployee
+    {
+        $role = Role::factory()->create();
+
+        foreach ($permissionNames as $name) {
+            $permission = Permission::factory()->create(['name' => $name]);
+            $role->permissions()->attach($permission->id);
+        }
+
+        return ShopEmployee::factory()->create(['role_id' => $role->id]);
+    }
+
     public function test_employee_inherits_permissions_from_role(): void
     {
-        [$employee, $permissions] = $this->makeEmployeeWithRolePermissions(['products.view', 'stock.view']);
+        $employee = $this->makeEmployeeWithRolePermissions(['products.view', 'stock.view']);
 
-        $resolved = $this->resolver()->resolveForEmployee($employee);
+        $resolved = app(PermissionResolverContract::class)->resolveForEmployee($employee);
 
         $this->assertTrue($resolved->has('products.view'));
         $this->assertTrue($resolved->has('stock.view'));
@@ -34,95 +39,59 @@ class PermissionResolverTest extends TestCase
 
     public function test_granted_override_adds_a_permission_not_on_the_role(): void
     {
-        [$employee, $permissions] = $this->makeEmployeeWithRolePermissions(['products.view']);
-        $extra = Permission::factory()->create(['name' => 'orders.manage', 'module' => 'orders']);
+        $employee = $this->makeEmployeeWithRolePermissions(['products.view']);
+        $extra = Permission::factory()->create(['name' => 'orders.manage']);
 
-        ShopEmployeePermission::create([
+        ShopEmployeePermission::factory()->create([
             'shop_employee_id' => $employee->id,
             'permission_id' => $extra->id,
             'is_granted' => true,
         ]);
 
-        $resolved = $this->resolver()->resolveForEmployee($employee);
+        $resolved = app(PermissionResolverContract::class)->resolveForEmployee($employee);
 
         $this->assertTrue($resolved->has('orders.manage'));
     }
 
     public function test_denied_override_removes_a_permission_granted_by_the_role(): void
     {
-        [$employee, $permissions] = $this->makeEmployeeWithRolePermissions(['products.view', 'products.manage']);
-        $toRevoke = $permissions['products.manage'];
+        $employee = $this->makeEmployeeWithRolePermissions(['products.view', 'stock.adjust']);
+        $denied = Permission::where('name', 'stock.adjust')->first();
 
-        ShopEmployeePermission::create([
+        ShopEmployeePermission::factory()->denied()->create([
             'shop_employee_id' => $employee->id,
-            'permission_id' => $toRevoke->id,
-            'is_granted' => false,
+            'permission_id' => $denied->id,
         ]);
 
-        $resolved = $this->resolver()->resolveForEmployee($employee);
+        $resolved = app(PermissionResolverContract::class)->resolveForEmployee($employee);
 
+        $this->assertFalse($resolved->has('stock.adjust'));
         $this->assertTrue($resolved->has('products.view'));
-        $this->assertFalse($resolved->has('products.manage'));
     }
 
     public function test_suspended_employee_has_no_permissions_regardless_of_role(): void
     {
-        [$employee] = $this->makeEmployeeWithRolePermissions(['products.view', 'products.manage']);
+        $employee = $this->makeEmployeeWithRolePermissions(['products.view']);
         $employee->update(['status' => ShopEmployee::STATUS_SUSPENDED]);
 
-        $resolved = $this->resolver()->resolveForEmployee($employee->fresh());
+        $resolved = app(PermissionResolverContract::class)->resolveForEmployee($employee->fresh());
 
         $this->assertSame(0, $resolved->count());
     }
 
     public function test_forgetting_cache_forces_a_fresh_resolution(): void
     {
-        [$employee, $permissions] = $this->makeEmployeeWithRolePermissions(['products.view']);
+        $employee = $this->makeEmployeeWithRolePermissions(['products.view']);
+        $resolver = app(PermissionResolverContract::class);
 
-        $first = $this->resolver()->resolveForEmployee($employee);
-        $this->assertFalse($first->has('orders.manage'));
+        $resolver->resolveForEmployee($employee); // met en cache
 
-        $extra = Permission::factory()->create(['name' => 'orders.manage', 'module' => 'orders']);
-        ShopEmployeePermission::create([
-            'shop_employee_id' => $employee->id,
-            'permission_id' => $extra->id,
-            'is_granted' => true,
-        ]);
+        $newPermission = Permission::factory()->create(['name' => 'stock.view']);
+        $employee->role->permissions()->attach($newPermission->id);
 
-        // Sans invalidation, le cache renverrait encore l'ancien résultat.
-        $this->resolver()->forgetForEmployee($employee);
+        $resolver->forgetForEmployee($employee);
+        $resolved = $resolver->resolveForEmployee($employee->fresh());
 
-        $second = $this->resolver()->resolveForEmployee($employee);
-        $this->assertTrue($second->has('orders.manage'));
-    }
-
-    /**
-     * @param  string[]  $permissionNames
-     * @return array{0: ShopEmployee, 1: array<string, Permission>}
-     */
-    private function makeEmployeeWithRolePermissions(array $permissionNames): array
-    {
-        $shop = Shop::factory()->create();
-        $role = Role::factory()->forShop($shop->id)->create();
-
-        $permissions = [];
-        foreach ($permissionNames as $name) {
-            [$module] = explode('.', $name);
-            $permissions[$name] = Permission::factory()->create(['name' => $name, 'module' => $module]);
-        }
-        $role->permissions()->attach(array_map(fn (Permission $p) => $p->id, $permissions));
-
-        $employee = ShopEmployee::factory()->create([
-            'shop_id' => $shop->id,
-            'role_id' => $role->id,
-            'status' => ShopEmployee::STATUS_ACTIVE,
-        ]);
-
-        return [$employee, $permissions];
-    }
-
-    private function resolver(): PermissionResolverContract
-    {
-        return $this->app->make(PermissionResolverContract::class);
+        $this->assertTrue($resolved->has('stock.view'));
     }
 }

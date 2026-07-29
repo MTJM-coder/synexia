@@ -26,11 +26,15 @@ class SetEmployeePermissionOverrideAction
         int $changedByUserId,
     ): void {
         DB::transaction(function () use ($employee, $permission, $isGranted, $changedByUserId) {
+            $existing = ShopEmployeePermission::query()
+                ->where('shop_employee_id', $employee->id)
+                ->where('permission_id', $permission->id)
+                ->first();
+
+            $previousIsGranted = $existing?->is_granted;
+
             if ($isGranted === null) {
-                ShopEmployeePermission::query()
-                    ->where('shop_employee_id', $employee->id)
-                    ->where('permission_id', $permission->id)
-                    ->delete();
+                $existing?->delete();
             } else {
                 ShopEmployeePermission::updateOrCreate(
                     [
@@ -41,7 +45,13 @@ class SetEmployeePermissionOverrideAction
                 );
             }
 
-            EmployeePermissionOverridden::dispatch($employee, $permission, $isGranted, $changedByUserId);
+            EmployeePermissionOverridden::dispatch(
+                $employee,
+                $permission,
+                $previousIsGranted,
+                $isGranted,
+                $changedByUserId,
+            );
         });
     }
 }

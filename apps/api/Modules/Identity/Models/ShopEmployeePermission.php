@@ -10,8 +10,6 @@ class ShopEmployeePermission extends Model
 {
     use HasFactory;
 
-    public $timestamps = false;
-
     protected $fillable = [
         'shop_employee_id',
         'permission_id',

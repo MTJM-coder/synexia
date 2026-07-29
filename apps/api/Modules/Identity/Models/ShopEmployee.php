@@ -7,12 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Modules\Marketplace\Models\Shop;
 
 class ShopEmployee extends Model
 {
-    use HasFactory;
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_SUSPENDED = 'suspended';
@@ -29,13 +27,8 @@ class ShopEmployee extends Model
     protected function casts(): array
     {
         return [
-            'hired_at' => 'date',
+            'hired_at' => 'datetime',
         ];
-    }
-
-    public function shop(): BelongsTo
-    {
-        return $this->belongsTo(Shop::class);
     }
 
     public function user(): BelongsTo
@@ -48,10 +41,6 @@ class ShopEmployee extends Model
         return $this->belongsTo(Role::class);
     }
 
-    /**
-     * Surcharges de permissions individuelles (grant/deny ponctuels),
-     * en plus de celles héritées du rôle.
-     */
     public function permissionOverrides(): HasMany
     {
         return $this->hasMany(ShopEmployeePermission::class);
@@ -60,5 +49,10 @@ class ShopEmployee extends Model
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role?->slug === 'owner';
     }
 }

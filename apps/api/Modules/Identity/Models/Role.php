@@ -40,7 +40,7 @@ class Role extends Model
     }
 
     /**
-     * Un rôle "systeme" (Owner, Manager, Employé de base...) ne peut pas être
+     * Un rôle "système" (Owner, Manager, Employé de base...) ne peut pas être
      * supprimé ni renommé par une boutique — seuls les rôles custom le peuvent.
      */
     public function isEditable(): bool

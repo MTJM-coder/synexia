@@ -8,17 +8,15 @@ use Modules\Identity\Models\ShopEmployee;
 /**
  * Frontière explicite entre le module Identity et le reste de l'application.
  * Les autres modules (Sales, Inventory, Payments...) ne dépendent JAMAIS des
- * modèles Role/Permission/ShopEmployeePermission directement pour vérifier un
- * droit — ils dépendent uniquement de ce contrat.
- *
- * Ça permet, par exemple, de brancher une implémentation avec cache Redis
- * distribué en production sans toucher au reste du code.
+ * modèles Role/Permission/ShopEmployeePermission directement — uniquement de
+ * ce contrat.
  */
 interface PermissionResolverContract
 {
     /**
      * Résout l'ensemble complet des permissions effectives d'un employé :
      * (permissions du rôle) + (surcharges "grant") - (surcharges "deny").
+     * Retourne un PermissionSet vide si l'employé n'est pas actif.
      */
     public function resolveForEmployee(ShopEmployee $employee): PermissionSet;
 
