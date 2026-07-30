@@ -148,14 +148,22 @@ class MakeModuleCommand extends Command
             public function boot(): void
             {
                 \$this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
-                \$this->loadRoutesFrom(__DIR__.'/routes.php');
 
-                // Permet à \$model->factory() de trouver les factories du module
-                // (elles ne vivent pas dans database/factories comme Laravel l'attend par défaut).
-                Factory::guessFactoryNamesUsing(
-                    fn (string \$modelClass) => 'Modules\\\\{$name}\\\\Database\\\\Factories\\\\'
-                        .class_basename(\$modelClass).'Factory'
-                );
+                // "api/" est déjà appliqué par routes/api.php qui inclut
+                // automatiquement Modules/*/routes.php (voir Modules\\Identity
+                // ou Modules\\Marketplace) — ne PAS appeler loadRoutesFrom()
+                // ici, ça enregistrerait chaque route deux fois.
+                // \$this->loadRoutesFrom(__DIR__.'/routes.php');
+
+                // Un seul resolver de factory générique existe déjà dans
+                // App\\Providers\\AppServiceProvider — ne PAS en ajouter un
+                // par module, le dernier enregistré écraserait tous les
+                // autres (bug déjà rencontré et corrigé une fois sur ce
+                // projet, voir Modules\\Identity pour l'historique).
+                // Factory::guessFactoryNamesUsing(
+                //     fn (string \$modelClass) => 'Modules\\\\{$name}\\\\Database\\\\Factories\\\\'
+                //         .class_basename(\$modelClass).'Factory'
+                // );
 
                 // Enregistrement des Events/Listeners du module : voir Modules\\Identity
                 // ou Modules\\Inventory pour un exemple concret (Event::listen(...)).
