@@ -2,7 +2,6 @@
 
 namespace Modules\Suppliers;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\ServiceProvider;
 
 class SuppliersServiceProvider extends ServiceProvider
