@@ -2,22 +2,21 @@
 
 namespace Modules\Catalog;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\ServiceProvider;
 
 class CatalogServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Bindings de Contracts -> implémentations concrètes.
-        // Ex: $this->app->singleton(SomeContract::class, SomeService::class);
+        // ProductPolicy dépend de Modules\Identity\Contracts\PermissionResolverContract,
+        // déjà lié en singleton dans Modules\Identity\IdentityServiceProvider —
+        // rien à lier ici, l'injection automatique du conteneur suffit.
     }
 
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/Database/Migrations');
-
-        // Enregistrement des Events/Listeners du module : voir Modules\Identity
-        // ou Modules\Inventory pour un exemple concret (Event::listen(...)).
+        // Pas de loadRoutesFrom() — routes/api.php centralise l'inclusion.
+        // Pas de guessFactoryNamesUsing() — résolution générique dans AppServiceProvider.
     }
 }
